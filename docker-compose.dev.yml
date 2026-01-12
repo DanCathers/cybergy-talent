@@ -1,0 +1,30 @@
+# =========================================================================
+# Development override — enables hot-reload and mounts source as volumes.
+#
+# Usage (combines with the base file):
+#     docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# With source mounted, editing a file on your host reloads the running service.
+# =========================================================================
+
+services:
+  backend:
+    # Mount the backend source so uvicorn --reload picks up code changes.
+    volumes:
+      - ./backend:/app
+    environment:
+      # Enable verbose reload logging in development.
+      PYTHONUNBUFFERED: "1"
+    # Override the command to enable auto-reload on file changes.
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    # Mount the frontend source for Next.js hot module replacement.
+    volumes:
+      - ./frontend:/app
+      # Keep the container's node_modules (don't shadow with the host's).
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+    # Run the dev server instead of the production build.
+    command: npm run dev

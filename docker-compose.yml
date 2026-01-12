@@ -1,0 +1,63 @@
+# =========================================================================
+# Cybergy Talent — full stack for local development.
+#
+# One command brings up everything:
+#     docker compose up --build
+#
+# Services:
+#   * postgres  — PostgreSQL 15 database
+#   * backend   — FastAPI API (depends on a healthy postgres)
+#   * frontend  — Next.js app (depends on backend)
+# =========================================================================
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: cybergy_postgres
+    environment:
+      POSTGRES_USER: cybergy
+      POSTGRES_PASSWORD: cybergy
+      POSTGRES_DB: cybergy_talent
+    ports:
+      - "5432:5432"
+    volumes:
+      # Persist database data across container restarts.
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # The backend waits until this reports "healthy".
+      test: ["CMD-SHELL", "pg_isready -U cybergy -d cybergy_talent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: cybergy_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cybergy:cybergy@postgres:5432/cybergy_talent
+      # Provide your real key via an .env file or your shell environment.
+      ABACUS_API_KEY: ${ABACUS_API_KEY:-}
+      ABACUS_BASE_URL: https://apps.abacus.ai/api/v0
+      AI_MODEL: gpt-4o
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      ALLOWED_ORIGINS: http://localhost:3000
+      MAX_UPLOAD_SIZE_MB: "10"
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    container_name: cybergy_frontend
+    depends_on:
+      - backend
+    environment:
+      # The browser talks to the backend on localhost:8000.
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres_data:
