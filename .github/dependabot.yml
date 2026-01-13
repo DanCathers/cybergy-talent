@@ -1,0 +1,41 @@
+# =========================================================================
+# Dependabot — automated dependency update pull requests.
+# Enabled for: Python (pip), JavaScript (npm), and GitHub Actions.
+# =========================================================================
+version: 2
+
+updates:
+  # --- Backend Python dependencies ---
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "backend"
+    commit-message:
+      prefix: "pip"
+
+  # --- Frontend npm dependencies ---
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "frontend"
+    commit-message:
+      prefix: "npm"
+
+  # --- GitHub Actions workflow versions ---
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "ci"
