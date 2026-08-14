@@ -19,7 +19,7 @@ alembic==1.13.2                  # database migrations
 greenlet==3.0.3                  # required by SQLAlchemy async
 
 # --- Resume file parsing ---
-PyMuPDF==1.24.5                  # "fitz" — fast PDF text extraction
+PyMuPDF==1.28.2                  # "fitz" — fast PDF text extraction
 pdfplumber==0.11.1               # layout-aware PDF fallback
 python-docx==1.1.2               # Word .docx parsing
 
