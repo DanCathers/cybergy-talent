@@ -1,0 +1,89 @@
+# =========================================================================
+# Continuous Integration — lint, security, test, and Docker build checks.
+# Runs on every push to main and on every pull request.
+# =========================================================================
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -----------------------------------------------------------------------
+  # 1) Lint — style and import-order checks for the Python backend.
+  # -----------------------------------------------------------------------
+  lint:
+    name: Lint (flake8, black, isort)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install lint tools
+        run: pip install flake8 black isort
+      - name: flake8
+        working-directory: backend
+        run: flake8 app
+      - name: black --check
+        working-directory: backend
+        run: black --check app tests
+      - name: isort --check
+        working-directory: backend
+        run: isort --check-only app tests
+
+  # -----------------------------------------------------------------------
+  # 2) Security — static analysis of the backend with Bandit.
+  # -----------------------------------------------------------------------
+  security:
+    name: Security (bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install bandit
+        run: pip install bandit
+      # Fail the build only on HIGH severity + HIGH confidence findings.
+      - name: Run bandit
+        run: bandit -r backend/app -ll -iii
+
+  # -----------------------------------------------------------------------
+  # 3) Test — run the pytest suite with coverage.
+  # -----------------------------------------------------------------------
+  test:
+    name: Tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+          pip install pytest-cov
+      - name: Run pytest
+        working-directory: backend
+        run: pytest --cov=app --cov-report=term-missing
+
+  # -----------------------------------------------------------------------
+  # 4) Docker build — verify both images build successfully.
+  # -----------------------------------------------------------------------
+  docker-build:
+    name: Docker build check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -t cybergy-backend:ci ./backend
+      - name: Build frontend image
+        run: docker build -t cybergy-frontend:ci ./frontend
