@@ -1,12 +1,12 @@
 # Cybergy Talent — Quick Start Guide
 
-This guide will get Cybergy Talent running on your local machine in under 5 minutes using Docker.
+This guide gets Cybergy Talent running on your local machine in under 5 minutes using Docker.
 
 ## Prerequisites
 
-- **Docker Desktop** installed and running on your PC
+- **Docker Desktop** installed and **running** on your PC
 - **Git** (to clone the repository)
-- An **Abacus AI API key** (you already have one)
+- An **Abacus AI API key**
 
 ## Step 1 — Clone the Repository
 
@@ -15,118 +15,127 @@ git clone https://github.com/DanCathers/cybergy-talent.git
 cd cybergy-talent
 ```
 
-## Step 2 — Set Up Environment Variables
+## Step 2 — Create Your `.env` File
 
-### Backend Environment Variables
+Docker Compose needs your Abacus AI API key. Create a file named `.env` in the
+**project root** (the same folder as `docker-compose.yml`) by copying the example:
 
-Create a file `backend/.env` with the following content:
-
-```env
-# Database connection (Docker Compose will create this)
-DATABASE_URL=postgresql://cybergy:cybergy123@postgres:5432/cybergy_talent
-
-# Abacus AI Configuration
-ABACUS_AI_ENDPOINT=https://apps.abacus.ai/api/v0
-OPENAI_API_KEY=your_abacus_api_key_here
-
-# Security (generate a random secret key)
-SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
-
-# Optional settings
-MAX_UPLOAD_SIZE_MB=10
-ALLOWED_ORIGINS=http://localhost:3000
+**Windows (PowerShell):**
+```powershell
+copy .env.example .env
 ```
 
-**⚠️ Important:** Replace `your_abacus_api_key_here` with your actual Abacus AI API key.
-
-### Frontend Environment Variables
-
-Create a file `frontend/.env.local` with:
-
-```env
-NEXT_PUBLIC_BACKEND_API_URL=http://localhost:8000
+**macOS / Linux:**
+```bash
+cp .env.example .env
 ```
 
-## Step 3 — Run with Docker Compose
+Then open `.env` in a text editor and set your real values:
 
-From the project root directory:
+```env
+ABACUS_API_KEY=your_actual_abacus_api_key_here
+SECRET_KEY=any-long-random-string-you-like
+```
+
+> **Note:** This `.env` file is git-ignored — your secrets will never be committed.
+
+## Step 3 — Start Everything
+
+From the project root, run:
 
 ```bash
-# Start all services (PostgreSQL, Backend, Frontend)
-docker-compose -f docker-compose.dev.yml up --build
+docker compose up --build
 ```
 
+> **Important:** Use `docker compose up --build` (the base file).
+> Do **not** run `docker-compose -f docker-compose.dev.yml up` on its own —
+> that file is only an optional add-on for hot-reload and cannot start the app
+> by itself.
+
 This command will:
-- Build the Docker images
-- Start PostgreSQL database
-- Run database migrations (create tables)
+- Build the backend and frontend Docker images
+- Start PostgreSQL, wait until it's healthy
+- Automatically create the database tables on backend startup
 - Start the FastAPI backend on port 8000
 - Start the Next.js frontend on port 3000
 
-The first build takes 3-5 minutes. Subsequent starts are much faster.
+The first build takes 3–5 minutes. Later starts are much faster.
 
-## Step 4 — Access the Application
+### Optional: Hot-Reload Development Mode
 
-Once all services are running, open your browser to:
+If you want to edit code and see changes without rebuilding, combine both files:
 
-- **Frontend:** http://localhost:3000
-- **Backend API Docs:** http://localhost:8000/docs
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+## Step 4 — Open the Application
+
+Once the logs settle and show the servers running, open your browser to:
+
+- **Frontend (main app):** http://localhost:3000
+- **Backend API Docs (Swagger):** http://localhost:8000/docs
 - **Backend Health Check:** http://localhost:8000/health
 
 ## What You Can Do
 
 ### 1. Upload a Resume
 - Drag and drop a PDF or DOCX resume onto the upload zone
-- The AI will parse and map it to HR Open Standards
+- The AI maps it to HR Open Standards
 - Download the JSON and XML outputs
 
 ### 2. Browse the Repository
-- Click "Repository" in the navigation
-- See all uploaded and processed resumes
+- Click "Repository" in the navigation to see processed resumes
 
 ### 3. Explore the API
-- Visit http://localhost:8000/docs
-- Try out the REST endpoints interactively
-- See the MCP-compatible agent query endpoints
+- Visit http://localhost:8000/docs to try the REST and MCP endpoints interactively
 
 ## Stopping the Application
 
 Press `Ctrl+C` in the terminal, then run:
 
 ```bash
-docker-compose -f docker-compose.dev.yml down
+docker compose down
 ```
 
-To completely remove the database and start fresh:
+To also wipe the database and start completely fresh:
 
 ```bash
-docker-compose -f docker-compose.dev.yml down -v
+docker compose down -v
 ```
 
 ## Troubleshooting
 
-### Port Already in Use
-If you see "port 3000 is already allocated" or similar:
-- Stop any other applications using ports 3000, 8000, or 5432
-- Or edit `docker-compose.dev.yml` to use different ports
+### "service backend has neither an image nor a build context specified"
+You ran the dev override file by itself. Use `docker compose up --build`
+instead (see Step 3).
 
-### Database Connection Errors
-If the backend can't connect to PostgreSQL:
-- Wait 10-15 seconds after starting — PostgreSQL takes time to initialize
-- Check logs: `docker-compose -f docker-compose.dev.yml logs postgres`
+### "port is already allocated"
+Something else is using port 3000, 8000, or 5432. Stop that program, or edit
+the `ports:` lines in `docker-compose.yml` to use different host ports.
 
-### Build Errors
-If the Docker build fails:
-- Ensure Docker Desktop has enough resources (4GB+ RAM recommended)
-- Try: `docker system prune -a` to clean up old images, then rebuild
+### AI mapping fails / empty results
+Your `ABACUS_API_KEY` is missing or incorrect in the project-root `.env`.
+The app will still start and parse files, but the AI mapping step needs a valid key.
+
+### Backend can't connect to the database
+PostgreSQL takes a few seconds to initialize. Compose waits for a healthy
+database automatically, but if you see connection errors, give it 10–15
+seconds and check logs:
+```bash
+docker compose logs postgres
+```
+
+### Build errors
+- Ensure Docker Desktop has at least 4GB RAM allocated
+- Try a clean rebuild: `docker compose build --no-cache`
 
 ## Next Steps
 
-Once it's running locally:
+Once it runs locally:
 - Test with your own resume
-- Modify the code and see live changes (backend requires restart, frontend hot-reloads)
-- When ready, deploy to your Hetzner VPS using the same docker-compose setup
+- When ready, deploy the same Docker setup to a VPS (Hetzner, etc.)
 
 ---
 
-**Need help?** Check the main [README.md](README.md) for detailed documentation.
+**Need help?** See the main [README.md](README.md) for full documentation.
