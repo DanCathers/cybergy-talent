@@ -15,7 +15,7 @@ pydantic-settings==2.3.4         # loads settings from environment variables
 # --- Database (async SQLAlchemy + PostgreSQL + migrations) ---
 sqlalchemy[asyncio]==2.0.31
 asyncpg==0.29.0                  # async PostgreSQL driver
-alembic==1.13.2                  # database migrations
+alembic==1.19.1                  # database migrations
 greenlet==3.0.3                  # required by SQLAlchemy async
 
 # --- Resume file parsing ---
