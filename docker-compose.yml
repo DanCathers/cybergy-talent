@@ -43,7 +43,8 @@ services:
       ABACUS_BASE_URL: https://apps.abacus.ai/api/v0
       AI_MODEL: gpt-4o
       SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
-      ALLOWED_ORIGINS: http://localhost:3000
+      # Must include the host port the browser loads the frontend on (3001).
+      ALLOWED_ORIGINS: http://localhost:3001,http://localhost:3000
       MAX_UPLOAD_SIZE_MB: "10"
     ports:
       - "8000:8000"
