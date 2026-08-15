@@ -2,9 +2,13 @@
 
 This is the presentation layer. Endpoints stay thin: they validate input,
 delegate to the service layer, and shape the HTTP response.
-"""
 
-from __future__ import annotations
+NOTE: we deliberately do NOT use ``from __future__ import annotations`` here.
+That import turns every type hint into a string (a ForwardRef), and FastAPI
+cannot resolve a stringized ``UploadFile`` parameter — it raises
+"Invalid args for response field! ... ForwardRef('UploadFile')". Keeping real
+(non-stringized) annotations lets FastAPI detect the file-upload parameter.
+"""
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
