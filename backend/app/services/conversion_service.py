@@ -12,12 +12,17 @@ Python client, pointed at Abacus AI's base URL.
 from __future__ import annotations
 
 import json
+import logging
 
 from openai import AsyncOpenAI
 from pydantic import ValidationError
 
 from app.core.config import settings
 from app.schemas.hr_open_standards import PersonProfile
+
+# Module logger so AI failures are visible in the container logs instead of
+# being silently swallowed (they still won't crash the upload flow).
+logger = logging.getLogger("cybergy.ai_mapping")
 
 # ---------------------------------------------------------------------------
 # The system prompt describes the target schema to the model in plain language
@@ -128,8 +133,16 @@ class ConversionService:
 
         try:
             content = await self._call_llm(raw_text)
-        except Exception:  # noqa: BLE001 - we deliberately degrade gracefully
-            # Network/auth/quota problems shouldn't crash the upload flow.
+        except Exception as exc:  # noqa: BLE001 - we deliberately degrade gracefully
+            # Network/auth/quota problems shouldn't crash the upload flow, but
+            # we DO log the real error so it's diagnosable (wrong base URL,
+            # bad API key, quota, etc.) instead of a silent "AI unavailable".
+            logger.error(
+                "AI mapping failed (base_url=%s model=%s): %r",
+                settings.ABACUS_BASE_URL,
+                self._model,
+                exc,
+            )
             return PersonProfile(profileName="Unmapped resume (AI unavailable)")
 
         # Extract the JSON object from the model's text response.

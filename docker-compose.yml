@@ -40,7 +40,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://cybergy:cybergy@postgres:5432/cybergy_talent
       # Provide your real key via an .env file or your shell environment.
       ABACUS_API_KEY: ${ABACUS_API_KEY:-}
-      ABACUS_BASE_URL: https://apps.abacus.ai/api/v0
+      ABACUS_BASE_URL: https://routellm.abacus.ai/v1
       AI_MODEL: gpt-4o
       SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
       # Must include the host port the browser loads the frontend on (3001).

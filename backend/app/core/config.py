@@ -32,7 +32,9 @@ class Settings(BaseSettings):
 
     # --- AI mapping ---
     ABACUS_API_KEY: str = ""  # required in production; empty allows local tests
-    ABACUS_BASE_URL: str = "https://apps.abacus.ai/api/v0"
+    # Abacus AI's OpenAI-compatible endpoint (RouteLLM). This is the correct
+    # base URL for chat/completions calls via the ``openai`` client.
+    ABACUS_BASE_URL: str = "https://routellm.abacus.ai/v1"
     AI_MODEL: str = "gpt-4o"
 
     # --- Database ---
