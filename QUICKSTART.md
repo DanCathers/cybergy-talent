@@ -57,7 +57,7 @@ This command will:
 - Start PostgreSQL, wait until it's healthy
 - Automatically create the database tables on backend startup
 - Start the FastAPI backend on port 8000
-- Start the Next.js frontend on port 3000
+- Start the Next.js frontend on port 3001
 
 The first build takes 3–5 minutes. Later starts are much faster.
 
@@ -73,7 +73,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 Once the logs settle and show the servers running, open your browser to:
 
-- **Frontend (main app):** http://localhost:3000
+- **Frontend (main app):** http://localhost:3001
 - **Backend API Docs (Swagger):** http://localhost:8000/docs
 - **Backend Health Check:** http://localhost:8000/health
 
