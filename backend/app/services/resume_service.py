@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.resume import Resume
 from app.parsers.parser_factory import ParserFactory
-from app.schemas.hr_open_standards import PersonProfile
+from app.schemas.hr_open_standards import Identifier, PersonProfile
 from app.services.conversion_service import conversion_service
 
 
@@ -107,7 +107,11 @@ class ResumeService:
         """
         profile = PersonProfile.model_validate(resume.profile or {})
         # Ensure the id reflects the database id for traceability.
-        profile.id = resume.id
+        # HR Open requires ``id`` to be an IdentifierType object ({"value": ...}),
+        # so we wrap the raw database id explicitly. (Pydantic does not run the
+        # field validator on plain attribute assignment, so we build the object
+        # ourselves rather than assigning a bare string.)
+        profile.id = Identifier(value=str(resume.id))
         return profile
 
     # ------------------------------------------------------------------

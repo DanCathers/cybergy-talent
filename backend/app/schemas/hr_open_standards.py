@@ -21,7 +21,7 @@ serialized output via the constants defined at the bottom of this module.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ---------------------------------------------------------------------------
 # Required HR Open Standards attribution / compliance strings.
@@ -66,6 +66,55 @@ class EffectiveTimePeriod(HROpenBase):
 
     validFrom: str | None = Field(default=None, description="Start date.")
     validTo: str | None = Field(default=None, description="End date.")
+
+
+class Identifier(HROpenBase):
+    """HR Open ``IdentifierType`` — a coded identifier object.
+
+    The HR Open schema requires identifiers to be OBJECTS with a required
+    ``value`` (not a bare string). Example: ``{"value": "0687-abc"}``.
+
+    The ``coerce_from_string`` validator lets us accept a plain string (which
+    the AI or older code may produce) and wrap it into the correct object shape
+    automatically, so the emitted JSON is always standards-compliant.
+    """
+
+    value: str | None = Field(default=None, description="The identifier value.")
+    schemeId: str | None = Field(default=None, description="Identifier scheme id.")
+    schemeVersionId: str | None = Field(default=None, description="Scheme version.")
+    schemeAgencyId: str | None = Field(default=None, description="Managing agency.")
+    description: str | None = None
+
+
+class ScoreText(HROpenBase):
+    """HR Open ``ScoreTextType`` — a textual score with a required ``value``."""
+
+    value: str | None = Field(default=None, description="The score text, e.g. 'expert'.")
+    scoreTextCode: str | None = None
+    minimum: str | None = None
+    maximum: str | None = None
+
+
+class BaseScore(HROpenBase):
+    """HR Open ``BaseScoreType`` — numeric and/or textual scores.
+
+    A proficiency level is expressed as a ``BaseScore`` object (NOT a bare
+    string). Example: ``{"scoresText": [{"value": "expert"}]}``.
+    """
+
+    scoresText: list[ScoreText] = Field(default_factory=list)
+
+    @field_validator("scoresText", mode="before")
+    @classmethod
+    def _coerce_scores(cls, v):
+        # Accept a plain string or list of strings and wrap into ScoreText objs.
+        if v is None:
+            return []
+        if isinstance(v, str):
+            return [{"value": v}]
+        if isinstance(v, list):
+            return [{"value": item} if isinstance(item, str) else item for item in v]
+        return v
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +225,11 @@ class PositionHistory(HROpenBase):
 
     title: str | None = None
     resourceRelationshipCode: str | None = Field(
-        default=None, description="employee, contractor, temporary, etc."
+        default=None,
+        description=(
+            "Must be one of the HR Open ResourceRelationshipCodeList values: "
+            "'Employee' or 'VendorEmployee' (capitalized)."
+        ),
     )
     organization: Organization | None = Field(
         default=None, description="Department / sub-org, if relevant."
@@ -188,6 +241,39 @@ class PositionHistory(HROpenBase):
     descriptions: list[str] = Field(
         default_factory=list, description="Responsibilities / achievements."
     )
+
+    @field_validator("resourceRelationshipCode", mode="before")
+    @classmethod
+    def _normalize_relationship_code(cls, v):
+        """Coerce free-form/lowercase values into the valid enum.
+
+        The HR Open ``ResourceRelationshipCodeList`` only allows exactly
+        ``"Employee"`` or ``"VendorEmployee"``. The AI (or older code) may emit
+        lowercase or synonyms like ``"employee"`` or ``"contractor"``; we map
+        those to the closest valid, capitalized code so the JSON validates.
+        """
+        if v is None or not isinstance(v, str):
+            return v
+        key = v.strip().lower()
+        if not key:
+            return None
+        # Synonyms that map to the "outside vendor / contractor" code.
+        vendor_terms = {
+            "vendoremployee",
+            "vendor",
+            "contractor",
+            "contract",
+            "temporary",
+            "temp",
+            "consultant",
+            "freelance",
+            "freelancer",
+        }
+        if key in vendor_terms:
+            return "VendorEmployee"
+        # Everything else (employee, permanent, full-time, part-time, ...) maps
+        # to the standard "Employee" code.
+        return "Employee"
 
 
 class EmployerHistory(HROpenBase):
@@ -233,7 +319,52 @@ class ExperienceMeasure(HROpenBase):
     """A measured amount of experience (e.g. 5 years)."""
 
     value: float | None = None
-    unitCode: str | None = Field(default=None, description="e.g. 'year', 'month'.")
+    unitCode: str | None = Field(
+        default=None,
+        description=(
+            "HR Open UnitCodeList code for the time unit. Use 'ANN' for years, "
+            "'MON' for months, 'WEE' for weeks, 'DAY' for days, 'HUR' for hours."
+        ),
+    )
+
+    @field_validator("unitCode", mode="before")
+    @classmethod
+    def _normalize_unit_code(cls, v):
+        """Coerce human words like 'year'/'years' into UnitCodeList codes.
+
+        The HR Open ``UnitCodeList`` uses UN/ECE codes such as ``ANN`` (years)
+        rather than the English word 'year'. We translate the common words the
+        AI may emit into the correct code so the JSON validates.
+        """
+        if v is None or not isinstance(v, str):
+            return v
+        key = v.strip().lower()
+        if not key:
+            return None
+        mapping = {
+            "year": "ANN",
+            "years": "ANN",
+            "yr": "ANN",
+            "yrs": "ANN",
+            "annual": "ANN",
+            "annually": "ANN",
+            "month": "MON",
+            "months": "MON",
+            "mo": "MON",
+            "week": "WEE",
+            "weeks": "WEE",
+            "wk": "WEE",
+            "day": "DAY",
+            "days": "DAY",
+            "hour": "HUR",
+            "hours": "HUR",
+            "hr": "HUR",
+            "hrs": "HUR",
+        }
+        # If the AI already gave a valid uppercase code, keep it as-is.
+        if v.strip().upper() in {"ANN", "MON", "WEE", "DAY", "HUR"}:
+            return v.strip().upper()
+        return mapping.get(key, v)
 
 
 class PersonCompetency(HROpenBase):
@@ -241,9 +372,33 @@ class PersonCompetency(HROpenBase):
 
     competencyName: str | None = Field(default=None, description="The skill name.")
     description: str | None = None
-    proficiencyLevel: str | None = Field(default=None, description="e.g. beginner, expert.")
+    proficiencyLevel: BaseScore | None = Field(
+        default=None,
+        description=(
+            "A BaseScore object, e.g. {'scoresText': [{'value': 'expert'}]}. "
+            "A bare string like 'expert' is auto-wrapped into this shape."
+        ),
+    )
     lastUsedDate: str | None = None
     experienceMeasure: ExperienceMeasure | None = None
+
+    @field_validator("proficiencyLevel", mode="before")
+    @classmethod
+    def _coerce_proficiency(cls, v):
+        """Wrap a bare string proficiency into a BaseScore object.
+
+        HR Open expects ``proficiencyLevel`` to be a ``BaseScoreType`` object,
+        not a bare string. If the AI emits ``"expert"`` we convert it into
+        ``{"scoresText": [{"value": "expert"}]}`` so the JSON is compliant.
+        """
+        if v is None:
+            return v
+        if isinstance(v, str):
+            text = v.strip()
+            if not text:
+                return None
+            return {"scoresText": [{"value": text}]}
+        return v
 
 
 # ---------------------------------------------------------------------------
@@ -316,9 +471,21 @@ class Referee(HROpenBase):
 class Attachment(HROpenBase):
     """HR Open ``AttachmentType`` — a link/reference to a related document."""
 
-    id: str | None = None
+    id: Identifier | None = Field(
+        default=None,
+        description="Identifier object, e.g. {'value': '...'}. Bare strings are auto-wrapped.",
+    )
     url: str | None = None
     descriptions: list[str] = Field(default_factory=list)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _coerce_id(cls, v):
+        """Wrap a bare string id into an IdentifierType object."""
+        if isinstance(v, str):
+            text = v.strip()
+            return {"value": text} if text else None
+        return v
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +498,13 @@ class PersonProfile(HROpenBase):
     export as JSON/XML. Every section is optional so partial resumes validate.
     """
 
-    id: str | None = Field(default=None, description="Stable identifier for this profile.")
+    id: Identifier | None = Field(
+        default=None,
+        description=(
+            "Stable identifier for this profile as an IdentifierType object, "
+            "e.g. {'value': '0687-...'}. A bare string is auto-wrapped."
+        ),
+    )
     name: PersonName | None = None
     communication: Communication | None = None
     profileName: str | None = Field(default=None, description="A label for this profile.")
@@ -350,6 +523,20 @@ class PersonProfile(HROpenBase):
     militaryService: list[MilitaryService] = Field(default_factory=list)
     references: list[Referee] = Field(default_factory=list)
     attachments: list[Attachment] = Field(default_factory=list)
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _coerce_id(cls, v):
+        """Wrap a bare string id into an IdentifierType object.
+
+        HR Open expects ``id`` to be an object with a ``value`` key, e.g.
+        ``{"value": "0687-..."}``. If a plain string is supplied we convert it
+        so the emitted JSON validates against the schema.
+        """
+        if isinstance(v, str):
+            text = v.strip()
+            return {"value": text} if text else None
+        return v
 
     def with_attribution(self) -> dict:
         """Return a dict of this profile with the required HR Open notices.

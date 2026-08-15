@@ -69,7 +69,7 @@ strings (YYYY-MM or YYYY-MM-DD) where possible.
     "organization": {"name": "company", "location": {"city": "", "countryCode": ""}},
     "positionHistories": [{
       "title": "job title",
-      "resourceRelationshipCode": "employee",
+      "resourceRelationshipCode": "Employee",
       "start": "2018-01", "end": "2022-03", "current": false,
       "descriptions": ["achievement or responsibility", "another bullet point"]
     }],
@@ -83,8 +83,8 @@ strings (YYYY-MM or YYYY-MM-DD) where possible.
   "qualifications": [{
     "competencyName": "Python",
     "description": "skill context",
-    "proficiencyLevel": "expert",
-    "experienceMeasure": {"value": 5, "unitCode": "year"}
+    "proficiencyLevel": {"scoresText": [{"value": "expert"}]},
+    "experienceMeasure": {"value": 5, "unitCode": "ANN"}
   }],
   "affiliations": [{"organization": {"name": ""}, "role": "", "startDate": "", "endDate": ""}],
   "publications": [{"title": "", "type": "article", "date": "", "journal": "", "publisher": ""}],
@@ -100,6 +100,17 @@ IMPORTANT:
 - Include ALL identifiable skills as separate qualification entries.
 - Return an empty array for any section not present in the resume.
 - Output must be strictly valid JSON parseable by json.loads().
+
+HR OPEN STANDARDS CODED-VALUE RULES (use these EXACT forms):
+- "resourceRelationshipCode" MUST be exactly "Employee" (a direct employee) or
+  "VendorEmployee" (a contractor/consultant/temp). Always capitalized.
+- "unitCode" in experienceMeasure MUST be a UN/ECE code, NOT an English word:
+  use "ANN" for years, "MON" for months, "WEE" for weeks, "DAY" for days,
+  "HUR" for hours.
+- "proficiencyLevel" MUST be an object shaped like
+  {"scoresText": [{"value": "expert"}]} — never a bare string.
+- Any "id" field MUST be an object like {"value": "the-identifier"}, never a
+  bare string.
 """
 
 
